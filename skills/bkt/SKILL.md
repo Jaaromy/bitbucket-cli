@@ -35,6 +35,7 @@ bkt auth status
 ```
 
 **Bitbucket Cloud Token Requirements:**
+
 - Create an "API token with scopes" (not a general API token)
 - Select **Bitbucket** as the application
 - Required scope: **Account: Read** (`read:user:bitbucket`)
@@ -115,7 +116,37 @@ bkt pr checkout 42               # Creates pr/42 branch
 All commands support `--json`, `--yaml`, `--jq`, and `--template`:
 
 ```bash
-bkt pr list --mine --json | jq '.[].title'
+bkt pr list --mine --json | jq '.pull_requests[].title'
+```
+
+### JSON shape gotchas (avoid jq errors)
+
+The following bit me in real sessions — read before piping `--json` to jq:
+
+- **`bkt pr list --json` returns an object, not a bare array.** Top-level keys are
+  `pull_requests`, `repo`, `workspace`. Iterate with `.pull_requests[]`, not `.[]`.
+  Same pattern likely for other list commands — always inspect with
+  `jq 'type, keys'` before assuming array shape.
+- **`source.branch` and `destination.branch` are objects, not strings.** Use
+  `.source.branch.name` and `.destination.branch.name`. A naked
+  `.source.branch | test("foo")` fails with `object ... cannot be matched, as it
+  is not a string`.
+- **`--limit` is capped on Bitbucket Cloud.** Values above ~50 return
+  `400 Bad Request: Invalid pagelen`. Use `--limit 50` (or omit) and paginate if
+  you need more.
+- **Avoid the built-in `--jq` flag for list commands.** It expected an object
+  and errored on array-shaped intermediate results in testing
+  (`jq evaluation failed: expected an object but got: array`). Pipe to a real
+  `jq` process instead: `bkt pr list --json | jq '<expr>'`.
+
+Working example — find PRs whose source branch matches a pattern:
+
+```bash
+bkt pr list --state OPEN --json \
+  | jq '[.pull_requests[] | select(.source.branch.name | test("AHA-592"))]
+        | map({id, title, state, source: .source.branch.name,
+               dest: .destination.branch.name,
+               url: .links.html.href})'
 ```
 
 ### Raw API escape hatch

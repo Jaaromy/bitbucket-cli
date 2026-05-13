@@ -1373,6 +1373,13 @@ default browser instead of printing to the terminal.
 
 Works on both Data Center and Cloud.
 
+> **Important — does NOT return comments.** `bkt pr view --json` does not
+> include the comment list, and the `comment_count` field comes back as
+> `null` even when the PR has comments. For any check involving review
+> comments, replies, resolution status, or "is there feedback to address?",
+> always use **`bkt pr comments <id>`** instead. Pair the two: `pr view`
+> for state/branches/CI metadata, `pr comments` for comment data.
+
 ### Usage
 
 ```
@@ -1411,4 +1418,3 @@ bkt pr view <id> [flags]
   # View a pull request in a different repository
   bkt pr view 10 --repo my-other-repo
 ```
-
